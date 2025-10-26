@@ -54,22 +54,22 @@ std::vector<at::Tensor> mlp_forward(int use_bias, int activation, std::vector<at
   auto input_features = inputs[0].size(1);
 
   std::vector<int> output_features;
-  for (int i = 0; i < num_layers; i++) {
+  for (unsigned long i = 0; i < num_layers; i++) {
     output_features.push_back(inputs[i + 1].size(0));
   }
 
   auto reserved_size = get_mlp_reserved_space(batch_size, num_layers, output_features.data());
 
   // create output/workspace tensor
-  auto out = at::empty({batch_size, output_features.back()}, inputs[0].type());
-  auto reserved_space = at::empty({static_cast<long>(reserved_size)}, inputs[0].type());
+  auto out = at::empty({batch_size, output_features.back()}, inputs[0].options());
+  auto reserved_space = at::empty({static_cast<long>(reserved_size)}, inputs[0].options());
   // allocate fixed 4MB workspace for cublaslt for now, and this gets at least 4 MB
-  auto lt_workspace = at::empty({1 << 22}, inputs[0].type());
+  auto lt_workspace = at::empty({1 << 22}, inputs[0].options());
 
   AT_DISPATCH_FLOATING_TYPES_AND_HALF(inputs[0].scalar_type(), "mlp_forward", [&] {
     std::vector<scalar_t*> w_ptr;
     std::vector<scalar_t*> b_ptr;
-    for (int i = 0; i < num_layers; i++) {
+    for (unsigned long i = 0; i < num_layers; i++) {
       w_ptr.push_back(inputs[i + 1].data_ptr<scalar_t>());
       if (use_bias) {
         b_ptr.push_back(inputs[i + 1 + num_layers].data_ptr<scalar_t>());
@@ -88,6 +88,8 @@ std::vector<at::Tensor> mlp_forward(int use_bias, int activation, std::vector<at
         use_bias,
         activation,
         (void*) (lt_workspace.data_ptr<scalar_t>()));
+
+    return result;
   });
 
   return {out, reserved_space};
@@ -112,22 +114,22 @@ std::vector<at::Tensor> mlp_backward(
   bool requires_grad = inputs[0].requires_grad();
 
   std::vector<int> output_features;
-  for (int i = 0; i < num_layers; i++) {
+  for (unsigned long i = 0; i < num_layers; i++) {
     output_features.push_back(inputs[i + 1].size(0));
   }
   // create outputs, length of inputs
   std::vector<at::Tensor> outputs;
-  for (int i = 0; i < inputs.size(); i++) {
-    outputs.push_back(at::empty(inputs[i].sizes(), inputs[i].type()));  // clone for testing now
+  for (unsigned long i = 0; i < inputs.size(); i++) {
+    outputs.push_back(at::empty(inputs[i].sizes(), inputs[i].options()));  // clone for testing now
   }
 
   AT_DISPATCH_FLOATING_TYPES_AND_HALF(inputs[0].scalar_type(), "mlp_backward", [&] {
     std::vector<scalar_t*> w_ptr;
-    for (int i = 0; i < num_layers; i++) {
+    for (unsigned long i = 0; i < num_layers; i++) {
       w_ptr.push_back(inputs[i + 1].data_ptr<scalar_t>());
     }
     std::vector<scalar_t*> outputs_ptr;
-    for (int i = 0; i < inputs.size(); i++) {
+    for (unsigned long i = 0; i < inputs.size(); i++) {
       outputs_ptr.push_back(outputs[i].data_ptr<scalar_t>());
     }
 
@@ -135,7 +137,7 @@ std::vector<at::Tensor> mlp_backward(
         get_mlp_bp_workspace_in_bytes<scalar_t>(batch_size, num_layers, output_features.data());
 
     // auto work_space = at::empty({work_size*4}, at::kByte);
-    auto work_space = at::empty({static_cast<long>(work_size / sizeof(scalar_t))}, inputs[0].type());
+    auto work_space = at::empty({static_cast<long>(work_size / sizeof(scalar_t))}, inputs[0].options());
 
     auto result = mlp_bp<scalar_t>(
         inputs[0].data_ptr<scalar_t>(),
@@ -154,6 +156,8 @@ std::vector<at::Tensor> mlp_backward(
         requires_grad,
         use_bias,
         activation);
+
+    return result;
   });
 
   return outputs;
