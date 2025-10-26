@@ -1,5 +1,10 @@
 # Introduction
 
+- Ubuntu 22.04.5 LTS，Linux 5.15.0-157-generic
+- NVIDIA Driver Version: 570.195.03
+- Cuda compilation tools, release 12.8, V12.8.93 Build cuda_12.8.r12.8/compiler.35583870_0
+- CuDNN Version: 9.14.0
+
 这个是我针对我的系统修改过的apex，修改如下:
 
 - 1、全面 删除了 VERSION_GE_1_1/1_3/1_5 定义
